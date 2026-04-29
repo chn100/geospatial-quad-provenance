@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: icu_boston_postgis
+    environment:
+      POSTGRES_DB: geodb
+      POSTGRES_USER: geouser
+      POSTGRES_PASSWORD: geopass
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geouser -d geodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    image: python:3.11-slim
+    container_name: icu_boston_api
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://geouser:geopass@db:5432/geodb
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    command: bash -lc "pip install --no-cache-dir -r requirements.txt && uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      db:
+        condition: service_healthy
